@@ -50,7 +50,7 @@ nb_iter = 0
 
 def sample_mixprob(mixprob):
     b, num_g, c, h, w = mixprob.shape
-    mixprob = mixprob.permute(0, 2, 3, 4, 1).view(-1, num_g)
+    mixprob = mixprob.permute(0, 2, 3, 4, 1).reshape(-1, num_g)
     probabilities = torch.nn.functional.softmax(mixprob, dim=-1)
     indices = torch.multinomial(probabilities, 1)
     indices = indices.view(b, c, h, w)[:,None,...]
@@ -74,8 +74,8 @@ def loss_fn(pred, target):
 
 
 @torch.no_grad()
-def sample(model, scheduler, num_steps=50):
-    xt = torch.randn(1, 3, size, size).to(device)
+def sample(model, scheduler, num_steps=50, batch_size=128):
+    xt = torch.randn(batch_size, 3, size, size).to(device)
     scheduler.set_timesteps(num_steps)
     for t in range(num_steps):
         pred = model(xt, t)['sample']
@@ -111,10 +111,11 @@ for current_epoch in range(100):
         optimizer.step()
         nb_iter += 1
         pbar.update(1)
+        pbar.set_description(f'loss: {loss.item()}')
 
         if nb_iter % 500 == 0:
             with torch.no_grad():
                 print(f'Save export {nb_iter}')
-                outputs = (sample(model, scheduler, num_steps=128) * 0.5) + 0.5
+                outputs = (sample(model, scheduler, num_steps=128, batch_size=128) * 0.5) + 0.5
                 torchvision.utils.save_image(outputs, f'export_{str(nb_iter).zfill(8)}.png')
-                torch.save(model.state_dict(), f'celeba.ckpt')
+                torch.save(model.state_dict(), f'diffusion.ckpt')
